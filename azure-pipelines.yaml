@@ -6,9 +6,24 @@ pool:
 
 strategy:
   matrix:
+    Linux-Python27:
+      python.version: '2.7'
+      os.image: 'ubuntu-latest'
     Linux-Python37:
       python.version: '3.7'
       os.image: 'ubuntu-latest'
+    Windows-Python27:
+      python.version: '2.7'
+      os.image: 'windows-latest'
+    Windows-Python37:
+      python.version: '3.7'
+      os.image: 'windows-latest'
+    MacOS-Python27:
+      python.version: '2.7'
+      os.image: 'macos-latest'
+    MacOS-Python37:
+      python.version: '3.7'
+      os.image: 'macos-latest'
 
 steps:
 - task: UsePythonVersion@0
@@ -16,5 +31,23 @@ steps:
     versionSpec: '$(python.version)'
   displayName: 'Use Python $(python.version)'
 
-- script: python -m pip install --upgrade pip setuptools
-  displayName: 'Upgrade pip and setuptools'
+- script: |
+    python -m pip install --upgrade pip setuptools
+    python -m pip install -r requirements.txt
+  displayName: 'Install dependencies'
+
+- script: python -m pip install https://github.com/$(libcloud_repo)/archive/$(libcloud_version).zip
+  displayName: 'Install $(libcloud_version) from $(libcloud_repo)'
+
+- script: |
+    set -e
+    python -m pip install flake8 pylint isort black
+    flake8 tests
+    pylint tests
+    isort --check-only --recursive tests
+    black --check tests
+  displayName: 'Run linters'
+  condition: and(eq(variables['python.version'], '3.7'), eq(variables['os.image'], 'ubuntu-latest'))
+
+- script: python -m tests.test_storage azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)"
+  displayName: 'Run storage tests'

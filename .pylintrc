@@ -1,0 +1,10 @@
+[MESSAGES CONTROL]
+disable =
+  missing-docstring
+
+[DESIGN]
+max-attributes = 10
+max-locals = 20
+
+[FORMAT]
+max-line-length = 88
