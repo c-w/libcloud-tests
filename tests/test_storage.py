@@ -1,5 +1,4 @@
 import base64
-import contextlib
 import io
 import json
 import os
@@ -15,31 +14,36 @@ from libcloud.storage import providers, types
 
 
 class StorageSmokeTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.provider = os.getenv("LIBCLOUD_PROVIDER", "azure_blobs")
+    account = None
+    secret = None
 
-        cls.kwargs = {
-            "key": os.getenv("AZURE_STORAGE_ACCOUNT"),
-            "secret": os.getenv("AZURE_STORAGE_KEY"),
+    def setUp(self):
+        self.provider = os.getenv("LIBCLOUD_PROVIDER", "azure_blobs")
+
+        self.kwargs = {
+            "key": self.account or os.getenv("AZURE_STORAGE_ACCOUNT"),
+            "secret": self.secret or os.getenv("AZURE_STORAGE_KEY"),
         }
 
+        if not self.kwargs["key"] or not self.kwargs["secret"]:
+            raise unittest.SkipTest("key and/or secret not set")
+
         try:
-            cls.kwargs["host"] = os.environ["AZURE_STORAGE_HOST"]
+            self.kwargs["host"] = os.environ["AZURE_STORAGE_HOST"]
         except KeyError:
             pass
 
         try:
-            cls.kwargs["port"] = int(os.environ["AZURE_STORAGE_PORT"])
+            self.kwargs["port"] = int(os.environ["AZURE_STORAGE_PORT"])
         except KeyError:
             pass
 
         try:
-            cls.kwargs["secure"] = os.environ["AZURE_STORAGE_SECURE"] != "false"
+            self.kwargs["secure"] = os.environ["AZURE_STORAGE_SECURE"] != "false"
         except KeyError:
             pass
 
-        cls.driver = providers.get_driver(cls.provider)(**cls.kwargs)
+        self.driver = providers.get_driver(self.provider)(**self.kwargs)
 
     def tearDown(self):
         for container in self.driver.list_containers():
@@ -150,6 +154,144 @@ class StorageSmokeTest(unittest.TestCase):
         return path
 
 
+class AzureStorageTest(StorageSmokeTest):
+    username = None
+    password = None
+    tenant = None
+    subscription = None
+    client = None
+    resource_group_name = None
+    location = "eastus"
+    template_file = os.path.splitext(__file__)[0] + ".arm.json"
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from azure.common.credentials import ServicePrincipalCredentials
+            from azure.mgmt.resource import ResourceManagementClient
+        except ImportError:
+            raise unittest.SkipTest("missing azure-mgmt-resource library")
+
+        cls.client = ResourceManagementClient(
+            credentials=ServicePrincipalCredentials(
+                client_id=cls.username, secret=cls.password, tenant=cls.tenant
+            ),
+            subscription_id=cls.subscription,
+        )
+
+        cls.resource_group_name = _random_string(length=23)
+
+        cls.client.resource_groups.create_or_update(
+            resource_group_name=cls.resource_group_name,
+            parameters={"location": cls.location},
+        )
+
+        with io.open(cls.template_file, encoding="utf-8") as fobj:
+            template = json.load(fobj)
+
+        deployment = cls.client.deployments.create_or_update(
+            resource_group_name=cls.resource_group_name,
+            deployment_name=os.path.basename(__file__),
+            properties={"template": template, "mode": "incremental"},
+        ).result()
+
+        for key, value in deployment.properties.outputs.items():
+            os.environ[key.upper()] = value["value"]
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.client.resource_groups.delete(
+            resource_group_name=cls.resource_group_name, polling=False
+        )
+
+
+class AzuriteStorageTest(StorageSmokeTest):
+    client = None
+    container = None
+    port = 10000
+    version = "latest"
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import docker
+        except ImportError:
+            raise unittest.SkipTest("missing docker library")
+
+        cls.client = docker.from_env()
+
+        cls.container = cls.client.containers.run(
+            "arafato/azurite:{}".format(cls.version),
+            detach=True,
+            auto_remove=True,
+            ports={cls.port: 10000},
+            environment={"executable": "blob"},
+        )
+
+        os.environ["AZURE_STORAGE_ACCOUNT"] = "devstoreaccount1"
+        os.environ["AZURE_STORAGE_KEY"] = (
+            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uS"
+            "RZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+        )
+        os.environ["AZURE_STORAGE_PORT"] = str(cls.port)
+        os.environ["AZURE_STORAGE_HOST"] = "localhost"
+        os.environ["AZURE_STORAGE_SECURE"] = "false"
+
+        time.sleep(5)
+
+    @classmethod
+    def tearDownClass(cls):
+        _kill_and_log(cls.container)
+
+
+class IotedgeStorageTests(StorageSmokeTest):
+    client = None
+    container = None
+    port = 11002
+    version = "latest"
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import docker
+        except ImportError:
+            raise unittest.SkipTest("missing docker library")
+
+        cls.client = docker.from_env()
+
+        account = _random_string(10)
+        key = base64.b64encode(_random_string(20).encode("ascii")).decode("ascii")
+
+        cls.container = cls.client.containers.run(
+            "mcr.microsoft.com/azure-blob-storage:{}".format(cls.version),
+            detach=True,
+            auto_remove=True,
+            ports={cls.port: 11002},
+            environment={
+                "LOCAL_STORAGE_ACCOUNT_NAME": account,
+                "LOCAL_STORAGE_ACCOUNT_KEY": key,
+            },
+        )
+
+        os.environ["AZURE_STORAGE_ACCOUNT"] = account
+        os.environ["AZURE_STORAGE_KEY"] = key
+        os.environ["AZURE_STORAGE_PORT"] = str(cls.port)
+        os.environ["AZURE_STORAGE_HOST"] = "localhost"
+        os.environ["AZURE_STORAGE_SECURE"] = "false"
+
+        time.sleep(5)
+
+    @classmethod
+    def tearDownClass(cls):
+        _kill_and_log(cls.container)
+
+
+def _kill_and_log(container):
+    for line in container.logs().splitlines():
+        print(line)
+    container.kill()
+
+
 def _random_container_name(prefix=""):
     max_length = 63
     suffix = _random_string(max_length)
@@ -170,100 +312,6 @@ def _read_stream(stream):
     return buffer.read()
 
 
-class _storage_account:  # pylint:disable=invalid-name
-    def __init__(self, client, location="eastus", name=None, template=None):
-        self.client = client
-        self.location = location
-        self.resource_group_name = name or _random_string(length=23)
-        self.template_path = template or os.path.splitext(__file__)[0] + ".arm.json"
-
-    @property
-    def template(self):
-        with io.open(self.template_path, "r", encoding="utf-8") as fobj:
-            return json.load(fobj)
-
-    def __enter__(self):
-        self.client.resource_groups.create_or_update(
-            resource_group_name=self.resource_group_name,
-            parameters={"location": self.location},
-        )
-
-        deployment = self.client.deployments.create_or_update(
-            resource_group_name=self.resource_group_name,
-            deployment_name=os.path.basename(__file__),
-            properties={"template": self.template, "mode": "incremental"},
-        ).result()
-
-        for key, value in deployment.properties.outputs.items():
-            os.environ[key.upper()] = value["value"]
-
-    def __exit__(self, *args, **kwargs):
-        self.client.resource_groups.delete(
-            resource_group_name=self.resource_group_name, polling=False
-        )
-
-
-@contextlib.contextmanager
-def _azurite_storage(client, port, version):
-    container = client.containers.run(
-        "arafato/azurite:{}".format(version),
-        detach=True,
-        auto_remove=True,
-        ports={port: 10000},
-        environment={"executable": "blob"},
-    )
-
-    os.environ["AZURE_STORAGE_ACCOUNT"] = "devstoreaccount1"
-    os.environ["AZURE_STORAGE_KEY"] = (
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uS"
-        "RZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
-    )
-    os.environ["AZURE_STORAGE_PORT"] = str(port)
-    os.environ["AZURE_STORAGE_HOST"] = "localhost"
-    os.environ["AZURE_STORAGE_SECURE"] = "false"
-
-    time.sleep(5)
-
-    try:
-        yield
-    finally:
-        for line in container.logs().splitlines():
-            print(line)
-        container.kill()
-
-
-@contextlib.contextmanager
-def _iotedge_storage(client, port, version):
-    account = _random_string(10)
-    key = base64.b64encode(_random_string(20).encode("ascii")).decode("ascii")
-
-    container = client.containers.run(
-        "mcr.microsoft.com/azure-blob-storage:{}".format(version),
-        detach=True,
-        auto_remove=True,
-        ports={port: 11002},
-        environment={
-            "LOCAL_STORAGE_ACCOUNT_NAME": account,
-            "LOCAL_STORAGE_ACCOUNT_KEY": key,
-        },
-    )
-
-    os.environ["AZURE_STORAGE_ACCOUNT"] = account
-    os.environ["AZURE_STORAGE_KEY"] = key
-    os.environ["AZURE_STORAGE_PORT"] = str(port)
-    os.environ["AZURE_STORAGE_HOST"] = "localhost"
-    os.environ["AZURE_STORAGE_SECURE"] = "false"
-
-    time.sleep(5)
-
-    try:
-        yield
-    finally:
-        for line in container.logs().splitlines():
-            print(line)
-        container.kill()
-
-
 def _main():
     from argparse import ArgumentParser
 
@@ -271,10 +319,15 @@ def _main():
     subparsers = parser.add_subparsers(dest="mode")
 
     storage_parser = subparsers.add_parser("azure-storage")
-    storage_parser.add_argument("--password", required=True)
-    storage_parser.add_argument("--tenant", required=True)
-    storage_parser.add_argument("--username", required=True)
-    storage_parser.add_argument("--subscription", required=True)
+    storage_parser.add_argument("--account", required=True)
+    storage_parser.add_argument("--secret", required=True)
+
+    new_storage_parser = subparsers.add_parser("new-azure-storage")
+    new_storage_parser.add_argument("--password", required=True)
+    new_storage_parser.add_argument("--tenant", required=True)
+    new_storage_parser.add_argument("--username", required=True)
+    new_storage_parser.add_argument("--subscription", required=True)
+    new_storage_parser.add_argument("--location", default="eastus")
 
     azurite_parser = subparsers.add_parser("azurite")
     azurite_parser.add_argument("--port", type=int, default=10000)
@@ -287,30 +340,36 @@ def _main():
     args = parser.parse_args()
 
     if args.mode == "azure-storage":
-        from azure.common.credentials import ServicePrincipalCredentials
-        from azure.mgmt.resource import ResourceManagementClient
+        StorageSmokeTest.account = args.account
+        StorageSmokeTest.secret = args.secret
 
-        credentials = ServicePrincipalCredentials(
-            client_id=args.username, secret=args.password, tenant=args.tenant
-        )
-        client = ResourceManagementClient(credentials, args.subscription)
+        testcase = StorageSmokeTest
 
-        with _storage_account(client):
-            unittest.main(argv=[sys.argv[0]])
+    elif args.mode == "new-azure-storage":
+        AzureStorageTest.username = args.username
+        AzureStorageTest.password = args.password
+        AzureStorageTest.tenant = args.tenant
+        AzureStorageTest.subscription = args.subscription
+        AzureStorageTest.location = args.location
+
+        testcase = AzureStorageTest
 
     elif args.mode == "azurite":
-        import docker
+        AzuriteStorageTest.port = args.port
+        AzuriteStorageTest.version = args.version
 
-        client = docker.from_env()
-        with _azurite_storage(client, args.port, args.version):
-            unittest.main(argv=[sys.argv[0]])
+        testcase = AzuriteStorageTest
 
     elif args.mode == "iotedge":
-        import docker
+        IotedgeStorageTests.port = args.port
+        IotedgeStorageTests.version = args.version
 
-        client = docker.from_env()
-        with _iotedge_storage(client, args.port, args.version):
-            unittest.main(argv=[sys.argv[0]])
+        testcase = IotedgeStorageTests
+
+    else:
+        raise NotImplementedError
+
+    unittest.main(argv=[sys.argv[0], testcase.__name__])
 
 
 if __name__ == "__main__":
