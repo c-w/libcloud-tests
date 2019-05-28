@@ -1,0 +1,20 @@
+trigger:
+- master
+
+pool:
+  vmImage: '$(os.image)'
+
+strategy:
+  matrix:
+    Linux-Python37:
+      python.version: '3.7'
+      os.image: 'ubuntu-latest'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '$(python.version)'
+  displayName: 'Use Python $(python.version)'
+
+- script: python -m pip install --upgrade pip setuptools
+  displayName: 'Upgrade pip and setuptools'
