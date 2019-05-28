@@ -1,3 +1,5 @@
+import base64
+import contextlib
 import io
 import json
 import os
@@ -6,6 +8,7 @@ import re
 import string
 import sys
 import tempfile
+import time
 import unittest
 
 from libcloud.storage import providers, types
@@ -20,6 +23,21 @@ class StorageSmokeTest(unittest.TestCase):
             "key": os.getenv("AZURE_STORAGE_ACCOUNT"),
             "secret": os.getenv("AZURE_STORAGE_KEY"),
         }
+
+        try:
+            cls.kwargs["host"] = os.environ["AZURE_STORAGE_HOST"]
+        except KeyError:
+            pass
+
+        try:
+            cls.kwargs["port"] = int(os.environ["AZURE_STORAGE_PORT"])
+        except KeyError:
+            pass
+
+        try:
+            cls.kwargs["secure"] = os.environ["AZURE_STORAGE_SECURE"] != "false"
+        except KeyError:
+            pass
 
         cls.driver = providers.get_driver(cls.provider)(**cls.kwargs)
 
@@ -185,6 +203,67 @@ class _storage_account:  # pylint:disable=invalid-name
         )
 
 
+@contextlib.contextmanager
+def _azurite_storage(client, port, version):
+    container = client.containers.run(
+        "arafato/azurite:{}".format(version),
+        detach=True,
+        auto_remove=True,
+        ports={port: 10000},
+        environment={"executable": "blob"},
+    )
+
+    os.environ["AZURE_STORAGE_ACCOUNT"] = "devstoreaccount1"
+    os.environ["AZURE_STORAGE_KEY"] = (
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uS"
+        "RZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+    )
+    os.environ["AZURE_STORAGE_PORT"] = str(port)
+    os.environ["AZURE_STORAGE_HOST"] = "localhost"
+    os.environ["AZURE_STORAGE_SECURE"] = "false"
+
+    time.sleep(5)
+
+    try:
+        yield
+    finally:
+        for line in container.logs().splitlines():
+            print(line)
+        container.kill()
+
+
+@contextlib.contextmanager
+def _iotedge_storage(client, port, version):
+    account = _random_string(10)
+    key = base64.b64encode(_random_string(20).encode("ascii")).decode("ascii")
+
+    container = client.containers.run(
+        "mcr.microsoft.com/azure-blob-storage:{}".format(version),
+        detach=True,
+        auto_remove=True,
+        ports={port: 11002},
+        environment={
+            "LOCAL_STORAGE_ACCOUNT_NAME": account,
+            "LOCAL_STORAGE_ACCOUNT_KEY": key,
+        },
+    )
+
+    os.environ["AZURE_STORAGE_ACCOUNT"] = account
+    os.environ["AZURE_STORAGE_KEY"] = key
+    os.environ["AZURE_STORAGE_PORT"] = str(port)
+    os.environ["AZURE_STORAGE_HOST"] = "localhost"
+    os.environ["AZURE_STORAGE_SECURE"] = "false"
+
+    time.sleep(5)
+
+    try:
+        yield
+    finally:
+        for line in container.logs().splitlines():
+            print(line)
+        container.kill()
+
+
 def _main():
     from argparse import ArgumentParser
 
@@ -196,6 +275,14 @@ def _main():
     storage_parser.add_argument("--tenant", required=True)
     storage_parser.add_argument("--username", required=True)
     storage_parser.add_argument("--subscription", required=True)
+
+    azurite_parser = subparsers.add_parser("azurite")
+    azurite_parser.add_argument("--port", type=int, default=10000)
+    azurite_parser.add_argument("--version", default="latest")
+
+    iotedge_parser = subparsers.add_parser("iotedge")
+    iotedge_parser.add_argument("--port", type=int, default=11002)
+    iotedge_parser.add_argument("--version", default="latest")
 
     args = parser.parse_args()
 
@@ -209,6 +296,20 @@ def _main():
         client = ResourceManagementClient(credentials, args.subscription)
 
         with _storage_account(client):
+            unittest.main(argv=[sys.argv[0]])
+
+    elif args.mode == "azurite":
+        import docker
+
+        client = docker.from_env()
+        with _azurite_storage(client, args.port, args.version):
+            unittest.main(argv=[sys.argv[0]])
+
+    elif args.mode == "iotedge":
+        import docker
+
+        client = docker.from_env()
+        with _iotedge_storage(client, args.port, args.version):
             unittest.main(argv=[sys.argv[0]])
 
 
