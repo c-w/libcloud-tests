@@ -11,7 +11,7 @@
         "description": "Name for the storage account"
       }
     },
-    "storageAccountType": {
+    "storageAccountSku": {
       "type": "string",
       "defaultValue": "Standard_LRS",
       "allowedValues": [
@@ -39,7 +39,7 @@
       "location": "[parameters('location')]",
       "apiVersion": "2018-07-01",
       "sku": {
-        "name": "[parameters('storageAccountType')]"
+        "name": "[parameters('storageAccountSku')]"
       },
       "kind": "StorageV2",
       "properties": {}
