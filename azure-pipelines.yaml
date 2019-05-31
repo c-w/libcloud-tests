@@ -47,8 +47,8 @@ steps:
     isort --check-only --recursive tests
     black --check tests
   displayName: 'Run linters'
-  condition: and(eq(variables['python.version'], '3.7'), eq(variables['os.image'], 'ubuntu-latest'))
+  condition: and(succeeded(), eq(variables['python.version'], '3.7'), eq(variables['os.image'], 'ubuntu-latest'))
 
 - script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)"
   displayName: 'Run storage tests'
-  condition: ne(variables['auth_password'], '')
+  condition: and(succeeded(), ne(variables['auth_password'], ''))
