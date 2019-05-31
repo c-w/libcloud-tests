@@ -1,12 +1,4 @@
-from sys import executable as python
-
 from invoke import task
-
-
-@task
-def setuplint(context):
-    dependencies = ["flake8", "pylint", "isort", "black"]
-    context.run("{} -m pip install {}".format(python, " ".join(dependencies)))
 
 
 @task

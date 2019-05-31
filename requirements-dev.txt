@@ -1,0 +1,6 @@
+apache-libcloud
+black
+flake8
+invoke
+isort
+pylint

@@ -1,0 +1,23 @@
+parameters:
+  osType: 'ubuntu'
+  pythonVersion: '3.7'
+
+jobs:
+- job: lint
+
+  pool:
+    osType: '${{parameters.osType}}-latest'
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '${{parameters.pythonVersion}}'
+    displayName: 'Use Python ${{parameters.pythonVersion}}'
+
+  - script: |
+      python -m pip install --upgrade pip setuptools
+      python -m pip install -r requirements-dev.txt
+    displayName: 'Install dependencies'
+
+  - script: invoke lint
+    displayName: 'Run linters'
