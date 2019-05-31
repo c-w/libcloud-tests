@@ -21,6 +21,12 @@ jobs:
       Python37-BlobStorage:
         storage.kind: 'BlobStorage'
         python.version: '3.7'
+      Python37-Azurite:
+        storage.kind: 'azurite'
+        python.version: '3.7'
+      Python37-IotEdge:
+        storage.kind: 'iotedge'
+        python.version: '3.7'
 
   steps:
   - task: UsePythonVersion@0
@@ -37,6 +43,11 @@ jobs:
     displayName: 'Install $(libcloud_version) from $(libcloud_repo)'
 
   - script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)" --kind "$(storage.kind)"
-    displayName: 'Run $(storage.kind) tests'
-    condition: and(succeeded(), ne(variables['auth_password'], ''))
+    displayName: 'Run live storage tests'
+    condition: and(succeeded(), ne(variables['auth_password'], ''), contains(variables['storage.kind'], 'Storage'))
+    continueOnError: true
+
+  - script: python -m tests.test_storage "$(storage.kind)"
+    displayName: 'Run local storage tests'
+    condition: not(contains(variables['storage.kind'], 'Storage'))
     continueOnError: true
