@@ -163,6 +163,7 @@ class AzureStorageTest(StorageSmokeTest):
     resource_group_name = None
     location = "eastus"
     template_file = os.path.splitext(__file__)[0] + ".arm.json"
+    kind = "StorageV2"
 
     @classmethod
     def setUpClass(cls):
@@ -192,7 +193,11 @@ class AzureStorageTest(StorageSmokeTest):
         deployment = cls.client.deployments.create_or_update(
             resource_group_name=cls.resource_group_name,
             deployment_name=os.path.basename(__file__),
-            properties={"template": template, "mode": "incremental"},
+            properties={
+                "template": template,
+                "mode": "incremental",
+                "parameters": {"storageAccountKind": {"value": cls.kind}},
+            },
         ).result()
 
         for key, value in deployment.properties.outputs.items():
@@ -328,6 +333,7 @@ def _main():
     new_storage_parser.add_argument("--username", required=True)
     new_storage_parser.add_argument("--subscription", required=True)
     new_storage_parser.add_argument("--location", default="eastus")
+    new_storage_parser.add_argument("--kind", default="StorageV2")
 
     azurite_parser = subparsers.add_parser("azurite")
     azurite_parser.add_argument("--port", type=int, default=10000)
@@ -351,6 +357,7 @@ def _main():
         AzureStorageTest.tenant = args.tenant
         AzureStorageTest.subscription = args.subscription
         AzureStorageTest.location = args.location
+        AzureStorageTest.kind = args.kind
 
         testcase = AzureStorageTest
 

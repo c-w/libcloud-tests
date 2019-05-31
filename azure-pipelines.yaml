@@ -43,6 +43,15 @@ steps:
   displayName: 'Run linters'
   condition: and(succeeded(), eq(variables['python.version'], '3.7'))
 
-- script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)"
-  displayName: 'Run storage tests'
+- script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)" --kind StorageV2
+  displayName: 'Run StorageV2 tests'
   condition: and(succeeded(), ne(variables['auth_password'], ''))
+
+- script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)" --kind Storage
+  displayName: 'Run Storage tests'
+  condition: and(succeeded(), ne(variables['auth_password'], ''))
+
+- script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)" --kind BlobStorage
+  displayName: 'Run BlobStorage tests'
+  condition: and(succeeded(), ne(variables['auth_password'], ''))
+  continueOnError: true

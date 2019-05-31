@@ -24,12 +24,29 @@
         "description": "SKU for the storage account"
       }
     },
+    "storageAccountKind": {
+      "type": "string",
+      "defaultValue": "StorageV2",
+      "allowedValues": [
+        "StorageV2",
+        "Storage",
+        "BlobStorage"
+      ],
+      "metadata": {
+        "description": "Type of the storage account"
+      }
+    },
     "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
       "metadata": {
         "description": "Location for all resources"
       }
+    }
+  },
+  "variables": {
+    "blobStorageProperties": {
+      "accessTier": "Hot"
     }
   },
   "resources": [
@@ -41,8 +58,8 @@
       "sku": {
         "name": "[parameters('storageAccountSku')]"
       },
-      "kind": "StorageV2",
-      "properties": {}
+      "kind": "[parameters('storageAccountKind')]",
+      "properties": "[if(equals(parameters('storageAccountKind'), 'BlobStorage'), variables('blobStorageProperties'), json('{}'))]"
     }
   ],
   "outputs": {
