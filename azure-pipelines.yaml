@@ -51,3 +51,4 @@ steps:
 
 - script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)"
   displayName: 'Run storage tests'
+  condition: ne(variables['auth_password'], '')
