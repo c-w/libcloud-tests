@@ -39,15 +39,9 @@ steps:
 - script: python -m pip install https://github.com/$(libcloud_repo)/archive/$(libcloud_version).zip
   displayName: 'Install $(libcloud_version) from $(libcloud_repo)'
 
-- script: |
-    set -e
-    python -m pip install flake8 pylint isort black
-    flake8 tests
-    pylint tests
-    isort --check-only --recursive tests
-    black --check tests
+- script: invoke setuplint lint
   displayName: 'Run linters'
-  condition: and(succeeded(), eq(variables['python.version'], '3.7'), eq(variables['os.image'], 'ubuntu-latest'))
+  condition: and(succeeded(), eq(variables['python.version'], '3.7'))
 
 - script: python -m tests.test_storage new-azure-storage --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)"
   displayName: 'Run storage tests'
