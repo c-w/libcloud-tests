@@ -63,11 +63,11 @@
     }
   ],
   "outputs": {
-    "AZURE_STORAGE_ACCOUNT": {
+    "account": {
       "type": "string",
       "value": "[parameters('storageAccountName')]"
     },
-    "AZURE_STORAGE_KEY": {
+    "secret": {
       "type": "string",
       "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]"
     }

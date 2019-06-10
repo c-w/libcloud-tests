@@ -5,7 +5,6 @@ import os
 import random
 import re
 import string
-import sys
 import tempfile
 import time
 import unittest
@@ -13,37 +12,26 @@ import unittest
 from libcloud.storage import providers, types
 
 
-class StorageSmokeTest(unittest.TestCase):
-    account = None
-    secret = None
+class SmokeStorageTest(unittest.TestCase):
+    class Config:
+        provider = None
+        account = None
+        secret = None
 
     def setUp(self):
-        self.provider = os.getenv("LIBCLOUD_PROVIDER", "azure_blobs")
+        for required in "provider", "account", "secret":
+            value = getattr(self.Config, required, None)
+            if value is None:
+                raise unittest.SkipTest("config {} not set".format(required))
 
-        self.kwargs = {
-            "key": self.account or os.getenv("AZURE_STORAGE_ACCOUNT"),
-            "secret": self.secret or os.getenv("AZURE_STORAGE_KEY"),
-        }
+        kwargs = {"key": self.Config.account, "secret": self.Config.secret}
 
-        if not self.kwargs["key"] or not self.kwargs["secret"]:
-            raise unittest.SkipTest("key and/or secret not set")
+        for optional in "host", "port", "secure":
+            value = getattr(self.Config, optional, None)
+            if value is not None:
+                kwargs[optional] = value
 
-        try:
-            self.kwargs["host"] = os.environ["AZURE_STORAGE_HOST"]
-        except KeyError:
-            pass
-
-        try:
-            self.kwargs["port"] = int(os.environ["AZURE_STORAGE_PORT"])
-        except KeyError:
-            pass
-
-        try:
-            self.kwargs["secure"] = os.environ["AZURE_STORAGE_SECURE"] != "false"
-        except KeyError:
-            pass
-
-        self.driver = providers.get_driver(self.provider)(**self.kwargs)
+        self.driver = providers.get_driver(self.Config.provider)(**kwargs)
 
     def tearDown(self):
         for container in self.driver.list_containers():
@@ -154,16 +142,18 @@ class StorageSmokeTest(unittest.TestCase):
         return path
 
 
-class AzureStorageTest(StorageSmokeTest):
-    username = None
-    password = None
-    tenant = None
-    subscription = None
+class AzureStorageTest(SmokeStorageTest):
+    class Config:
+        username = None
+        password = None
+        tenant = None
+        subscription = None
+        location = "eastus"
+        template_file = os.path.splitext(__file__)[0] + ".arm.json"
+        kind = "StorageV2"
+
     client = None
     resource_group_name = None
-    location = "eastus"
-    template_file = os.path.splitext(__file__)[0] + ".arm.json"
-    kind = "StorageV2"
 
     @classmethod
     def setUpClass(cls):
@@ -175,19 +165,21 @@ class AzureStorageTest(StorageSmokeTest):
 
         cls.client = ResourceManagementClient(
             credentials=ServicePrincipalCredentials(
-                client_id=cls.username, secret=cls.password, tenant=cls.tenant
+                client_id=cls.Config.username,
+                secret=cls.Config.password,
+                tenant=cls.Config.tenant,
             ),
-            subscription_id=cls.subscription,
+            subscription_id=cls.Config.subscription,
         )
 
         cls.resource_group_name = _random_string(length=23)
 
         cls.client.resource_groups.create_or_update(
             resource_group_name=cls.resource_group_name,
-            parameters={"location": cls.location},
+            parameters={"location": cls.Config.location},
         )
 
-        with io.open(cls.template_file, encoding="utf-8") as fobj:
+        with io.open(cls.Config.template_file, encoding="utf-8") as fobj:
             template = json.load(fobj)
 
         deployment = cls.client.deployments.create_or_update(
@@ -196,12 +188,14 @@ class AzureStorageTest(StorageSmokeTest):
             properties={
                 "template": template,
                 "mode": "incremental",
-                "parameters": {"storageAccountKind": {"value": cls.kind}},
+                "parameters": {"storageAccountKind": {"value": cls.Config.kind}},
             },
         ).result()
 
         for key, value in deployment.properties.outputs.items():
-            os.environ[key.upper()] = value["value"]
+            setattr(cls.Config, key.lower(), value["value"])
+
+        cls.Config.provider = "azure_blobs"
 
     @classmethod
     def tearDownClass(cls):
@@ -210,11 +204,13 @@ class AzureStorageTest(StorageSmokeTest):
         )
 
 
-class AzuriteStorageTest(StorageSmokeTest):
+class AzuriteStorageTest(SmokeStorageTest):
+    class Config:
+        port = 10000
+        version = "latest"
+
     client = None
     container = None
-    port = 10000
-    version = "latest"
 
     @classmethod
     def setUpClass(cls):
@@ -226,21 +222,21 @@ class AzuriteStorageTest(StorageSmokeTest):
         cls.client = docker.from_env()
 
         cls.container = cls.client.containers.run(
-            "arafato/azurite:{}".format(cls.version),
+            "arafato/azurite:{}".format(cls.Config.version),
             detach=True,
             auto_remove=True,
-            ports={cls.port: 10000},
+            ports={cls.Config.port: 10000},
             environment={"executable": "blob"},
         )
 
-        os.environ["AZURE_STORAGE_ACCOUNT"] = "devstoreaccount1"
-        os.environ["AZURE_STORAGE_KEY"] = (
+        cls.Config.account = "devstoreaccount1"
+        cls.Config.secret = (
             "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uS"
             "RZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
         )
-        os.environ["AZURE_STORAGE_PORT"] = str(cls.port)
-        os.environ["AZURE_STORAGE_HOST"] = "localhost"
-        os.environ["AZURE_STORAGE_SECURE"] = "false"
+        cls.Config.host = "localhost"
+        cls.Config.secure = False
+        cls.Config.provider = "azure_blobs"
 
         time.sleep(5)
 
@@ -249,11 +245,13 @@ class AzuriteStorageTest(StorageSmokeTest):
         _kill_and_log(cls.container)
 
 
-class IotedgeStorageTests(StorageSmokeTest):
+class IotedgeStorageTest(SmokeStorageTest):
+    class Config:
+        port = 11002
+        version = "latest"
+
     client = None
     container = None
-    port = 11002
-    version = "latest"
 
     @classmethod
     def setUpClass(cls):
@@ -268,21 +266,21 @@ class IotedgeStorageTests(StorageSmokeTest):
         key = base64.b64encode(_random_string(20).encode("ascii")).decode("ascii")
 
         cls.container = cls.client.containers.run(
-            "mcr.microsoft.com/azure-blob-storage:{}".format(cls.version),
+            "mcr.microsoft.com/azure-blob-storage:{}".format(cls.Config.version),
             detach=True,
             auto_remove=True,
-            ports={cls.port: 11002},
+            ports={cls.Config.port: 11002},
             environment={
                 "LOCAL_STORAGE_ACCOUNT_NAME": account,
                 "LOCAL_STORAGE_ACCOUNT_KEY": key,
             },
         )
 
-        os.environ["AZURE_STORAGE_ACCOUNT"] = account
-        os.environ["AZURE_STORAGE_KEY"] = key
-        os.environ["AZURE_STORAGE_PORT"] = str(cls.port)
-        os.environ["AZURE_STORAGE_HOST"] = "localhost"
-        os.environ["AZURE_STORAGE_SECURE"] = "false"
+        cls.Config.account = account
+        cls.Config.secret = key
+        cls.Config.host = "localhost"
+        cls.Config.secure = False
+        cls.Config.provider = "azure_blobs"
 
         time.sleep(5)
 
@@ -317,67 +315,44 @@ def _read_stream(stream):
     return buffer.read()
 
 
-def _main():
-    from argparse import ArgumentParser
+def _cli(module_name, strip_suffix=""):
+    import argparse
+    import inspect
+    import sys
 
-    parser = ArgumentParser()
-    subparsers = parser.add_subparsers(dest="mode")
+    module = sys.modules[module_name]
 
-    storage_parser = subparsers.add_parser("azure-storage")
-    storage_parser.add_argument("--account", required=True)
-    storage_parser.add_argument("--secret", required=True)
+    testcases = {
+        class_name.replace(strip_suffix, "").lower(): test_class
+        for class_name, test_class in inspect.getmembers(module, inspect.isclass)
+    }
 
-    new_storage_parser = subparsers.add_parser("new-azure-storage")
-    new_storage_parser.add_argument("--password", required=True)
-    new_storage_parser.add_argument("--tenant", required=True)
-    new_storage_parser.add_argument("--username", required=True)
-    new_storage_parser.add_argument("--subscription", required=True)
-    new_storage_parser.add_argument("--location", default="eastus")
-    new_storage_parser.add_argument("--kind", default="StorageV2")
+    testcase_arg = "mode"
 
-    azurite_parser = subparsers.add_parser("azurite")
-    azurite_parser.add_argument("--port", type=int, default=10000)
-    azurite_parser.add_argument("--version", default="latest")
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest=testcase_arg)
 
-    iotedge_parser = subparsers.add_parser("iotedge")
-    iotedge_parser.add_argument("--port", type=int, default=11002)
-    iotedge_parser.add_argument("--version", default="latest")
+    for test_name, test_class in testcases.items():
+        test_parser = subparsers.add_parser(test_name)
+        for arg_name, arg_value in vars(test_class.Config).items():
+            if not arg_name.startswith("_"):
+                kwargs = {}
+                if arg_value is None:
+                    kwargs["required"] = True
+                else:
+                    kwargs["type"] = type(arg_value)
+                    kwargs["default"] = arg_value
+                test_parser.add_argument("--{}".format(arg_name), **kwargs)
 
     args = parser.parse_args()
 
-    if args.mode == "azure-storage":
-        StorageSmokeTest.account = args.account
-        StorageSmokeTest.secret = args.secret
-
-        testcase = StorageSmokeTest
-
-    elif args.mode == "new-azure-storage":
-        AzureStorageTest.username = args.username
-        AzureStorageTest.password = args.password
-        AzureStorageTest.tenant = args.tenant
-        AzureStorageTest.subscription = args.subscription
-        AzureStorageTest.location = args.location
-        AzureStorageTest.kind = args.kind
-
-        testcase = AzureStorageTest
-
-    elif args.mode == "azurite":
-        AzuriteStorageTest.port = args.port
-        AzuriteStorageTest.version = args.version
-
-        testcase = AzuriteStorageTest
-
-    elif args.mode == "iotedge":
-        IotedgeStorageTests.port = args.port
-        IotedgeStorageTests.version = args.version
-
-        testcase = IotedgeStorageTests
-
-    else:
-        raise NotImplementedError
+    testcase = testcases[getattr(args, testcase_arg)]
+    for arg_name, arg_value in vars(args).items():
+        if not arg_name.startswith("_") and arg_name != testcase_arg:
+            setattr(testcase.Config, arg_name, arg_value)
 
     unittest.main(argv=[sys.argv[0], testcase.__name__])
 
 
 if __name__ == "__main__":
-    _main()
+    _cli(__name__, "StorageTest")
