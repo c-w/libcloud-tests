@@ -45,7 +45,6 @@ jobs:
   - script: python -m tests.test_storage azure --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)" --kind "$(storage.kind)"
     displayName: 'Run live storage tests'
     condition: and(succeeded(), ne(variables['auth_password'], ''), contains(variables['storage.kind'], 'Storage'))
-    continueOnError: true
 
   - script: python -m tests.test_storage "$(storage.kind)"
     displayName: 'Run local storage tests'
