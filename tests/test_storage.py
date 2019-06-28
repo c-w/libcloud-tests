@@ -199,9 +199,26 @@ class AzureStorageTest(SmokeStorageTest):
 
     @classmethod
     def tearDownClass(cls):
-        cls.client.resource_groups.delete(
-            resource_group_name=cls.resource_group_name, polling=False
-        )
+        while True:
+            groups = [
+                group
+                for group in cls.client.resource_groups.list()
+                if group.name.startswith(cls.resource_group_name)
+            ]
+
+            if not groups:
+                break
+
+            for group in groups:
+                if group.properties.provisioning_state != "Deleting":
+                    try:
+                        cls.client.resource_groups.delete(
+                            resource_group_name=group.name, polling=False
+                        )
+                    except Exception:  # pylint: disable=broad-except
+                        pass
+
+            time.sleep(3)
 
 
 class AzuriteStorageTest(SmokeStorageTest):
