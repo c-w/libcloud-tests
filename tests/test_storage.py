@@ -172,7 +172,7 @@ class AzureStorageTest(SmokeStorageTest):
             subscription_id=cls.Config.subscription,
         )
 
-        cls.resource_group_name = _random_string(length=23)
+        cls.resource_group_name = "libcloudtest" + _random_string(length=23)
 
         cls.client.resource_groups.create_or_update(
             resource_group_name=cls.resource_group_name,
