@@ -311,13 +311,15 @@ def _kill_and_log(container):
     container.kill()
 
 
-def _random_container_name(prefix=""):
+def _random_container_name(prefix="test"):
     max_length = 63
     suffix = _random_string(max_length)
     name = prefix + suffix
     name = re.sub("[^a-z0-9-]", "-", name)
     name = re.sub("-+", "-", name)
-    return name[:max_length]
+    name = name[:max_length]
+    name = name.lower()
+    return name
 
 
 def _random_string(length, alphabet=string.ascii_lowercase + string.digits):
