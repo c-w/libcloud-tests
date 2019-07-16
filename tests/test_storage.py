@@ -231,12 +231,7 @@ class AzuriteStorageTest(SmokeStorageTest):
 
     @classmethod
     def setUpClass(cls):
-        try:
-            import docker
-        except ImportError:
-            raise unittest.SkipTest("missing docker library")
-
-        cls.client = docker.from_env()
+        cls.client = _new_docker_client()
 
         cls.container = cls.client.containers.run(
             "arafato/azurite:{}".format(cls.Config.version),
@@ -272,12 +267,7 @@ class IotedgeStorageTest(SmokeStorageTest):
 
     @classmethod
     def setUpClass(cls):
-        try:
-            import docker
-        except ImportError:
-            raise unittest.SkipTest("missing docker library")
-
-        cls.client = docker.from_env()
+        cls.client = _new_docker_client()
 
         account = _random_string(10)
         key = base64.b64encode(_random_string(20).encode("ascii")).decode("ascii")
@@ -304,6 +294,15 @@ class IotedgeStorageTest(SmokeStorageTest):
     @classmethod
     def tearDownClass(cls):
         _kill_and_log(cls.container)
+
+
+def _new_docker_client():
+    try:
+        import docker
+    except ImportError:
+        raise unittest.SkipTest("missing docker library")
+
+    return docker.from_env()
 
 
 def _kill_and_log(container):
