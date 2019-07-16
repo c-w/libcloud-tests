@@ -1,0 +1,17 @@
+parameters:
+  pythonMajorVersion: '3'
+  pythonMinorVersion: '7'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '${{parameters.pythonMajorVersion}}.${{parameters.pythonMinorVersion}}'
+  displayName: 'Use Python ${{parameters.pythonMajorVersion}}.${{parameters.pythonMinorVersion}}'
+
+- script: |
+    python -m pip install --upgrade pip setuptools
+    python -m pip install -r requirements.txt
+  displayName: 'Install dependencies'
+
+- script: python -m pip install https://github.com/$(libcloud_repo)/archive/$(libcloud_version).zip
+  displayName: 'Install $(libcloud_version) from $(libcloud_repo)'

@@ -1,23 +1,14 @@
-parameters:
-  osType: 'ubuntu'
-  pythonVersion: '3.7'
-
 jobs:
 - job: lint
 
   pool:
-    osType: '${{parameters.osType}}-latest'
+    osType: 'ubuntu-latest'
 
   steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '${{parameters.pythonVersion}}'
-    displayName: 'Use Python ${{parameters.pythonVersion}}'
+  - template: azure-pipelines-install.yaml
 
-  - script: |
-      python -m pip install --upgrade pip setuptools
-      python -m pip install -r requirements-dev.txt
-    displayName: 'Install dependencies'
+  - script: python -m pip install -r requirements-dev.txt
+    displayName: 'Install dev dependencies'
 
   - script: invoke lint
     displayName: 'Run linters'

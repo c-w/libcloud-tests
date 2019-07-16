@@ -9,12 +9,15 @@ stages:
 
 - stage: test
   jobs:
-  - template: azure-pipelines-test.yaml
+  - template: azure-pipelines-test-azure.yaml
+  - template: azure-pipelines-test-azure.yaml
     parameters:
-      osType: 'ubuntu'
-  - template: azure-pipelines-test.yaml
+      pythonMajorVersion: '2'
+      pythonMinorVersion: '7'
+  - template: azure-pipelines-test-azure.yaml
     parameters:
       osType: 'macos'
-  - template: azure-pipelines-test.yaml
+  - template: azure-pipelines-test-azure.yaml
     parameters:
       osType: 'windows'
+  - template: azure-pipelines-test-container.yaml

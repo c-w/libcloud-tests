@@ -1,0 +1,28 @@
+parameters:
+  osType: 'ubuntu'
+  osVersion: '16.04'
+  pythonMajorVersion: '3'
+  pythonMinorVersion: '7'
+
+jobs:
+- job: 'test_container_${{parameters.osType}}_${{parameters.pythonMajorVersion}}${{parameters.pythonMinorVersion}}'
+
+  pool:
+    vmImage: '${{parameters.osType}}-${{parameters.osVersion}}'
+
+  strategy:
+    matrix:
+      Azurite:
+        storage.kind: 'azurite'
+      IotEdge:
+        storage.kind: 'iotedge'
+
+  steps:
+  - template: azure-pipelines-install.yaml
+    parameters:
+      pythonMajorVersion: '${{parameters.pythonMajorVersion}}'
+      pythonMinorVersion: '${{parameters.pythonMinorVersion}}'
+
+  - script: python -m tests.test_storage "$(storage.kind)"
+    displayName: 'Run local storage tests'
+    continueOnError: true
