@@ -25,4 +25,3 @@ jobs:
 
   - script: python -m tests.test_storage "$(storage.kind)"
     displayName: 'Run local storage tests'
-    continueOnError: true
