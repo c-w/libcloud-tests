@@ -13,5 +13,9 @@ steps:
     python -m pip install -r requirements.txt
   displayName: 'Install dependencies'
 
+- script: pip install requests==$(requests_version)
+  displayName: 'Install requests'
+  condition: ne(variables['requests_version'], '')
+
 - script: python -m pip install https://github.com/$(libcloud_repo)/archive/$(libcloud_version).zip
   displayName: 'Install $(libcloud_version) from $(libcloud_repo)'
