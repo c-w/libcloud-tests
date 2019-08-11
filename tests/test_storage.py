@@ -11,6 +11,8 @@ import unittest
 
 from libcloud.storage import providers, types
 
+MB = 1024 * 1024
+
 
 class SmokeStorageTest(unittest.TestCase):
     class Config:
@@ -66,8 +68,8 @@ class SmokeStorageTest(unittest.TestCase):
         containers = self.driver.list_containers()
         self.assertEqual([c.name for c in containers], [])
 
-    def _test_objects(self, do_upload, do_download):
-        content = b"some random content"
+    def _test_objects(self, do_upload, do_download, size=1 * MB):
+        content = os.urandom(size)
         blob_name = "testblob"
         container = self.driver.create_container(_random_container_name())
 
@@ -101,7 +103,7 @@ class SmokeStorageTest(unittest.TestCase):
         blobs = self.driver.list_container_objects(container)
         self.assertEqual([blob.name for blob in blobs], [blob_name[::-1]])
 
-    def test_objects(self):
+    def test_objects(self, size=1 * MB):
         def do_upload(container, blob_name, content):
             infile = self._create_tempfile(content=content)
             return self.driver.upload_object(infile, container, blob_name)
@@ -112,7 +114,12 @@ class SmokeStorageTest(unittest.TestCase):
             with open(outfile, "rb") as fobj:
                 return fobj.read()
 
-        self._test_objects(do_upload, do_download)
+        self._test_objects(do_upload, do_download, size)
+
+    @unittest.skipUnless(os.getenv("LARGE_FILE_SIZE_MB"), "config not set")
+    def test_objects_large(self):
+        size = int(float(os.environ["LARGE_FILE_SIZE_MB"]) * MB)
+        self.test_objects(size)
 
     def test_objects_stream_io(self):
         def do_upload(container, blob_name, content):
