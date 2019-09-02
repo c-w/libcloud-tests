@@ -235,13 +235,14 @@ class AzuriteStorageTest(SmokeStorageTest):
 
     client = None
     container = None
+    image = "arafato/azurite"
 
     @classmethod
     def setUpClass(cls):
         cls.client = _new_docker_client()
 
         cls.container = cls.client.containers.run(
-            "arafato/azurite:{}".format(cls.Config.version),
+            "{}:{}".format(cls.image, cls.Config.version),
             detach=True,
             auto_remove=True,
             ports={cls.Config.port: 10000},
@@ -262,6 +263,10 @@ class AzuriteStorageTest(SmokeStorageTest):
     @classmethod
     def tearDownClass(cls):
         _kill_and_log(cls.container)
+
+
+class AzuriteV3StorageTest(AzuriteStorageTest):
+    image = "mcr.microsoft.com/azure-storage/azurite"
 
 
 class IotedgeStorageTest(SmokeStorageTest):
