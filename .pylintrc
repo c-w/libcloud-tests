@@ -1,6 +1,7 @@
 [MESSAGES CONTROL]
 disable =
   missing-docstring
+  , import-outside-toplevel
 
 [DESIGN]
 max-attributes = 10
