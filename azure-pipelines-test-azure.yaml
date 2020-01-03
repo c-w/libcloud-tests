@@ -3,21 +3,13 @@ parameters:
   osVersion: 'latest'
   pythonMajorVersion: '3'
   pythonMinorVersion: '7'
+  storageKind: 'StorageV2'
 
 jobs:
-- job: 'test_azure_${{parameters.osType}}_${{parameters.pythonMajorVersion}}${{parameters.pythonMinorVersion}}'
+- job: 'test_${{parameters.storageKind}}_${{parameters.osType}}_${{parameters.pythonMajorVersion}}${{parameters.pythonMinorVersion}}'
 
   pool:
     vmImage: '${{parameters.osType}}-${{parameters.osVersion}}'
-
-  strategy:
-    matrix:
-      StorageV2:
-        storage.kind: 'StorageV2'
-      Storage:
-        storage.kind: 'Storage'
-      BlobStorage:
-        storage.kind: 'BlobStorage'
 
   steps:
   - template: azure-pipelines-install.yaml
@@ -25,6 +17,6 @@ jobs:
       pythonMajorVersion: '${{parameters.pythonMajorVersion}}'
       pythonMinorVersion: '${{parameters.pythonMinorVersion}}'
 
-  - script: python -m tests.test_storage azure --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)" --kind "$(storage.kind)"
+  - script: python -m tests.test_storage azure --password "$(auth_password)" --tenant "$(auth_tenant)" --username "$(auth_username)" --subscription "$(auth_subscription)" --kind "${{parameters.storageKind}}"
     displayName: 'Run live storage tests'
-    condition: and(succeeded(), ne(variables['auth_password'], ''), contains(variables['storage.kind'], 'Storage'))
+    condition: and(succeeded(), ne(variables['auth_password'], ''))

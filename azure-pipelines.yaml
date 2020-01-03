@@ -27,12 +27,15 @@ stages:
       pythonMinorVersion: '6'
   - template: azure-pipelines-test-azure.yaml
     parameters:
-      pythonMajorVersion: '3'
-      pythonMinorVersion: '7'
-  - template: azure-pipelines-test-azure.yaml
-    parameters:
       osType: 'macos'
   - template: azure-pipelines-test-azure.yaml
     parameters:
       osType: 'windows'
+  - template: azure-pipelines-test-azure.yaml
+    parameters:
+      storageKind: 'BlobStorage'
+  - template: azure-pipelines-test-azure.yaml
+    parameters:
+      storageKind: 'Storage'
+  - template: azure-pipelines-test-azure.yaml
   - template: azure-pipelines-test-container.yaml
