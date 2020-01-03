@@ -1,6 +1,6 @@
 parameters:
   osType: 'ubuntu'
-  osVersion: '16.04'
+  osVersion: 'latest'
   pythonMajorVersion: '3'
   pythonMinorVersion: '7'
 
