@@ -10,9 +10,16 @@ stages:
 - stage: test
   jobs:
   - template: azure-pipelines-test-azure.yaml
+    parameters:
+      pythonMajorVersion: '3'
+      pythonMinorVersion: '5'
   - template: azure-pipelines-test-azure.yaml
     parameters:
-      pythonMajorVersion: '2'
+      pythonMajorVersion: '3'
+      pythonMinorVersion: '6'
+  - template: azure-pipelines-test-azure.yaml
+    parameters:
+      pythonMajorVersion: '3'
       pythonMinorVersion: '7'
   - template: azure-pipelines-test-azure.yaml
     parameters:
