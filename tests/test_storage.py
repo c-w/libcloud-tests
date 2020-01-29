@@ -9,6 +9,7 @@ import tempfile
 import time
 import unittest
 
+import requests
 from libcloud.storage import providers, types
 
 MB = 1024 * 1024
@@ -141,6 +142,16 @@ class SmokeStorageTest(unittest.TestCase):
 
         self._test_objects(do_upload, do_download)
 
+    def test_cdn_url(self):
+        content = os.urandom(MB // 100)
+        container = self.driver.create_container(_random_container_name())
+        obj = self.driver.upload_object_via_stream(iter(content), container, "cdn")
+
+        response = requests.get(self.driver.get_object_cdn_url(obj))
+        response.raise_for_status()
+
+        self.assertEqual(response.content, content)
+
     def _create_tempfile(self, prefix="", content=b""):
         fobj, path = tempfile.mkstemp(prefix=prefix, text=False)
         os.write(fobj, content)
@@ -236,6 +247,7 @@ class AzuriteStorageTest(SmokeStorageTest):
     client = None
     container = None
     image = "arafato/azurite"
+    has_sas_support = False
 
     @classmethod
     def setUpClass(cls):
@@ -264,9 +276,14 @@ class AzuriteStorageTest(SmokeStorageTest):
     def tearDownClass(cls):
         _kill_and_log(cls.container)
 
+    def test_cdn_url(self):
+        if not self.has_sas_support:
+            self.skipTest("Storage backend has no account SAS support")
+
 
 class AzuriteV3StorageTest(AzuriteStorageTest):
     image = "mcr.microsoft.com/azure-storage/azurite"
+    has_sas_support = True
 
 
 class IotedgeStorageTest(SmokeStorageTest):
