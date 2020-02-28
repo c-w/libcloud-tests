@@ -132,15 +132,15 @@ class SmokeStorageTest(unittest.TestCase):
         self.assertEqual(obj.size, len(content))
 
         values = [
-            {"start_bytes": 0, "end_bytes": 1, "expected_content": "0"},
-            {"start_bytes": 1, "end_bytes": 5, "expected_content": "1234"},
-            {"start_bytes": 5, "end_bytes": None, "expected_content": "56789"},
-            {"start_bytes": 5, "end_bytes": len(content), "expected_content": "56789"},
-            {"start_bytes": 0, "end_bytes": None, "expected_content": "0123456789"},
+            {"start_bytes": 0, "end_bytes": 1, "expected_content": b"0"},
+            {"start_bytes": 1, "end_bytes": 5, "expected_content": b"1234"},
+            {"start_bytes": 5, "end_bytes": None, "expected_content": b"56789"},
+            {"start_bytes": 5, "end_bytes": len(content), "expected_content": b"56789"},
+            {"start_bytes": 0, "end_bytes": None, "expected_content": b"0123456789"},
             {
                 "start_bytes": 0,
                 "end_bytes": len(content),
-                "expected_content": "0123456789",
+                "expected_content": b"0123456789",
             },
         ]
 
