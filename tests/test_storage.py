@@ -158,7 +158,7 @@ class SmokeStorageTest(unittest.TestCase):
                 downloaded_content = fobj.read()
 
             if end_bytes is not None:
-                expected_content = content[start_bytes : end_bytes + 1]
+                expected_content = content[start_bytes : end_bytes]
             else:
                 expected_content = content[start_bytes]
 
