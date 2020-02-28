@@ -3,5 +3,5 @@ git+https://github.com/Kami/libcloud.git@storage_api_range_download#egg=libcloud
 black
 flake8
 invoke
-isort
-pylint
+isort==4.3.21
+pylint==2.4.4
