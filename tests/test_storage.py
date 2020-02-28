@@ -10,7 +10,6 @@ import time
 import unittest
 
 import requests
-
 from libcloud.storage import providers, types
 
 MB = 1024 * 1024
