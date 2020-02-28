@@ -132,12 +132,16 @@ class SmokeStorageTest(unittest.TestCase):
         self.assertEqual(obj.size, len(content))
 
         values = [
-            {"start_bytes": 0, "end_bytes": 1},
-            {"start_bytes": 1, "end_bytes": 5},
-            {"start_bytes": 5, "end_bytes": None},
-            {"start_bytes": 5, "end_bytes": len(content)},
-            {"start_bytes": 0, "end_bytes": None},
-            {"start_bytes": 0, "end_bytes": len(content)},
+            {"start_bytes": 0, "end_bytes": 1, "expected_content": "0"},
+            {"start_bytes": 1, "end_bytes": 5, "expected_content": "1234"},
+            {"start_bytes": 5, "end_bytes": None, "expected_content": "56789"},
+            {"start_bytes": 5, "end_bytes": len(content), "expected_content": "56789"},
+            {"start_bytes": 0, "end_bytes": None, "expected_content": "0123456789"},
+            {
+                "start_bytes": 0,
+                "end_bytes": len(content),
+                "expected_content": "0123456789",
+            },
         ]
 
         for value in values:
@@ -169,6 +173,7 @@ class SmokeStorageTest(unittest.TestCase):
                 str(value),
             )
             self.assertEqual(downloaded_content, expected_content, msg)
+            self.assertEqual(downloaded_content, value["expected_content"], msg)
 
             # 2. download_object_range_as_stream
             downloaded_content = _read_stream(
