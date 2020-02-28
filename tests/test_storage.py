@@ -159,9 +159,14 @@ class SmokeStorageTest(unittest.TestCase):
             if end_bytes is not None:
                 expected_content = content[start_bytes:end_bytes]
             else:
-                expected_content = content[start_bytes]
+                expected_content = content[start_bytes:]
 
-            self.assertEqual(downloaded_content, expected_content)
+            msg = 'Expected "%s", got "%s" for values: %s' % (
+                expected_content,
+                downloaded_content,
+                str(value),
+            )
+            self.assertEqual(downloaded_content, expected_content, msg)
 
             # 2. download_object_range_as_stream
             downloaded_content = _read_stream(
