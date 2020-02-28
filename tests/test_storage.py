@@ -10,6 +10,7 @@ import time
 import unittest
 
 import requests
+
 from libcloud.storage import providers, types
 
 MB = 1024 * 1024
@@ -132,22 +133,10 @@ class SmokeStorageTest(unittest.TestCase):
         self.assertEqual(obj.size, len(content))
 
         values = [
-            {
-                "start_bytes": 0,
-                "end_bytes": 0
-            },
-            {
-                "start_bytes": 1,
-                "end_bytes": 5
-            },
-            {
-                "start_bytes": 5,
-                "end_bytes": None
-            },
-            {
-                "start_bytes": 5,
-                "end_bytes": len(content)
-            }
+            {"start_bytes": 0, "end_bytes": 0},
+            {"start_bytes": 1, "end_bytes": 5},
+            {"start_bytes": 5, "end_bytes": None},
+            {"start_bytes": 5, "end_bytes": len(content)},
         ]
 
         for value in values:
@@ -156,24 +145,29 @@ class SmokeStorageTest(unittest.TestCase):
             end_bytes = value["end_bytes"]
             outfile = self._create_tempfile()
 
-            result = self.driver.download_object_range(obj, outfile,
-                                              start_bytes=start_bytes,
-                                              end_bytes=end_bytes,
-                                              overwrite_existing=True)
+            result = self.driver.download_object_range(
+                obj,
+                outfile,
+                start_bytes=start_bytes,
+                end_bytes=end_bytes,
+                overwrite_existing=True,
+            )
             self.assertTrue(result)
 
             with open(outfile, "rb") as fobj:
                 downloaded_content = fobj.read()
 
             if end_bytes is not None:
-                expected_content = content[start_bytes:end_bytes + 1]
+                expected_content = content[start_bytes : end_bytes + 1]
             else:
                 expected_content = content[start_bytes]
 
             self.assertEqual(downloaded_content, expected_content)
 
             # 2. download_object_range_as_stream
-            downloaded_content = _read_stream(self.driver.download_object_as_stream(obj))
+            downloaded_content = _read_stream(
+                self.driver.download_object_as_stream(obj)
+            )
             self.assertEqual(downloaded_content, expected_content)
 
     @unittest.skipUnless(os.getenv("LARGE_FILE_SIZE_MB"), "config not set")
