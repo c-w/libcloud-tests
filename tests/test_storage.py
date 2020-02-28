@@ -172,7 +172,9 @@ class SmokeStorageTest(unittest.TestCase):
 
             # 2. download_object_range_as_stream
             downloaded_content = _read_stream(
-                self.driver.download_object_as_stream(obj)
+                self.driver.download_object_range_as_stream(
+                    obj, start_bytes=start_bytes, end_bytes=end_bytes
+                )
             )
             self.assertEqual(downloaded_content, expected_content)
 
