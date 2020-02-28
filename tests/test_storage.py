@@ -125,6 +125,8 @@ class SmokeStorageTest(unittest.TestCase):
         infile = self._create_tempfile(content=content)
         obj = self.driver.upload_object(infile, container, blob_name)
         self.assertEqual(obj.name, blob_name)
+        self.assertEqual(obj.size, len(content))
+
         obj = self.driver.get_object(container.name, blob_name)
         self.assertEqual(obj.name, blob_name)
         self.assertEqual(obj.size, len(content))
