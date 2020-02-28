@@ -1,4 +1,3 @@
-apache-libcloud
 git+https://github.com/Kami/libcloud.git@storage_api_range_download#egg=libcloud
 black
 flake8
