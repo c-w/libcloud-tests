@@ -17,5 +17,5 @@ steps:
   displayName: 'Install requests'
   condition: ne(variables['requests_version'], '')
 
-- script: python -m pip install https://github.com/Kami/libcloud/archive/storage_api_range_download.zip
+- script: python -m pip install https://github.com/$(libcloud_repo)/archive/$(libcloud_version).zip
   displayName: 'Install $(libcloud_version) from $(libcloud_repo)'

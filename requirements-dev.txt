@@ -1,4 +1,4 @@
-git+https://github.com/Kami/libcloud.git@storage_api_range_download#egg=libcloud
+apache-libcloud
 black==19.10b0
 flake8==3.7.9
 invoke
