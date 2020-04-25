@@ -1,6 +1,6 @@
 apache-libcloud
-black
-flake8
+black==19.10b0
+flake8==3.7.9
 invoke
-isort
-pylint
+isort==4.3.21
+pylint==2.4.4

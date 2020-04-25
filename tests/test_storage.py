@@ -117,6 +117,72 @@ class SmokeStorageTest(unittest.TestCase):
 
         self._test_objects(do_upload, do_download, size)
 
+    def test_objects_range_downloads(self):
+        blob_name = "testblob-range"
+        content = b"0123456789"
+        container = self.driver.create_container(_random_container_name())
+
+        infile = self._create_tempfile(content=content)
+        obj = self.driver.upload_object(infile, container, blob_name)
+        self.assertEqual(obj.name, blob_name)
+        self.assertEqual(obj.size, len(content))
+
+        obj = self.driver.get_object(container.name, blob_name)
+        self.assertEqual(obj.name, blob_name)
+        self.assertEqual(obj.size, len(content))
+
+        values = [
+            {"start_bytes": 0, "end_bytes": 1, "expected_content": b"0"},
+            {"start_bytes": 1, "end_bytes": 5, "expected_content": b"1234"},
+            {"start_bytes": 5, "end_bytes": None, "expected_content": b"56789"},
+            {"start_bytes": 5, "end_bytes": len(content), "expected_content": b"56789"},
+            {"start_bytes": 0, "end_bytes": None, "expected_content": b"0123456789"},
+            {
+                "start_bytes": 0,
+                "end_bytes": len(content),
+                "expected_content": b"0123456789",
+            },
+        ]
+
+        for value in values:
+            # 1. download_object_range
+            start_bytes = value["start_bytes"]
+            end_bytes = value["end_bytes"]
+            outfile = self._create_tempfile()
+
+            result = self.driver.download_object_range(
+                obj,
+                outfile,
+                start_bytes=start_bytes,
+                end_bytes=end_bytes,
+                overwrite_existing=True,
+            )
+            self.assertTrue(result)
+
+            with open(outfile, "rb") as fobj:
+                downloaded_content = fobj.read()
+
+            if end_bytes is not None:
+                expected_content = content[start_bytes:end_bytes]
+            else:
+                expected_content = content[start_bytes:]
+
+            msg = 'Expected "%s", got "%s" for values: %s' % (
+                expected_content,
+                downloaded_content,
+                str(value),
+            )
+            self.assertEqual(downloaded_content, expected_content, msg)
+            self.assertEqual(downloaded_content, value["expected_content"], msg)
+
+            # 2. download_object_range_as_stream
+            downloaded_content = _read_stream(
+                self.driver.download_object_range_as_stream(
+                    obj, start_bytes=start_bytes, end_bytes=end_bytes
+                )
+            )
+            self.assertEqual(downloaded_content, expected_content)
+
     @unittest.skipUnless(os.getenv("LARGE_FILE_SIZE_MB"), "config not set")
     def test_objects_large(self):
         size = int(float(os.environ["LARGE_FILE_SIZE_MB"]) * MB)
