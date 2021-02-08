@@ -1,4 +1,5 @@
 import base64
+import gzip
 import io
 import json
 import os
@@ -207,6 +208,18 @@ class SmokeStorageTest(unittest.TestCase):
             return _read_stream(self.driver.download_object_as_stream(obj))
 
         self._test_objects(do_upload, do_download)
+
+    def test_upload_via_stream_with_content_encoding(self):
+        object_name = "content_encoding.gz"
+        content = gzip.compress(os.urandom(MB // 100))
+        container = self.driver.create_container(_random_container_name())
+        self.driver.upload_object_via_stream(
+            iter(content), container, object_name, headers={"Content-Encoding": "gzip"}
+        )
+
+        obj = self.driver.get_object(container.name, object_name)
+
+        self.assertEqual(obj.extra.get("content_encoding"), "gzip")
 
     def test_cdn_url(self):
         content = os.urandom(MB // 100)
