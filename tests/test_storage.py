@@ -364,6 +364,11 @@ class AzuriteV3StorageTest(AzuriteStorageTest):
     image = "mcr.microsoft.com/azure-storage/azurite"
     has_sas_support = True
 
+    def test_upload_via_stream_with_content_encoding(self):
+        self.skipTest(
+            "Possible bug in AzuriteV3, see https://github.com/Azure/Azurite/issues/629"
+        )
+
 
 class IotedgeStorageTest(SmokeStorageTest):
     class Config:
